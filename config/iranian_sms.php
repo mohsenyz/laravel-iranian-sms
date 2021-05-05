@@ -17,9 +17,9 @@ return [
     ],
 
     'smsir' => [
-        'gateway' => env('IRANIANSMS_SMSIR_GATEWAY', 'http://ip.sms.ir/SendMessage.ashx'),
-        'user' => env('IRANIANSMS_SMSIR_USER', 'test'),
-        'pass'  => env('IRANIANSMS_SMSIR_PASS', 'test'),
+        'gateway' => env('IRANIANSMS_SMSIR_GATEWAY', 'https://ws.sms.ir/'),
+        'api_key' => env('IRANIANSMS_SMSIR_API_KEY', 'test'),
+        'secret_key'  => env('IRANIANSMS_SMSIR_SECRET_KEY', 'test'),
         'line_no'  => env('IRANIANSMS_SMSIR_LINENO', 'test'),
     ],
 

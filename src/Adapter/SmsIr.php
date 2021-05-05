@@ -2,49 +2,83 @@
 
 namespace Tartan\IranianSms\Adapter;
 
+use Illuminate\Support\Facades\Config;
+use Samuraee\EasyCurl\EasyCurl;
+
 class SmsIr extends AdapterAbstract implements AdapterInterface
 {
-    public  $gateway_url;
+    public  $gateway_url = 'https://ws.sms.ir/';
 
     private $credential = [
-        'user'   => '',
-        'pass'   => '',
-        'lineNo' => '',
+        'apiKey'   => '',
+        'lineNo'   => '',
+        'secretKey' => '',
     ];
 
     public function __construct($account = null)
     {
         if (is_null($account)) {
             $this->gateway_url          = config('iranian_sms.smsir.gateway');
-            $this->credential['user']   = config('iranian_sms.smsir.user');
-            $this->credential['pass']   = config('iranian_sms.smsir.pass');
+            $this->credential['apiKey']   = config('iranian_sms.smsir.api_key');
+            $this->credential['secretKey']   = config('iranian_sms.smsir.secret_key');
             $this->credential['lineNo'] = config('iranian_sms.smsir.line_no');
         } else {
             $this->gateway_url          = config("iranian_sms.smsir.{$account}.gateway");
-            $this->credential['user']   = config("iranian_sms.smsir.{$account}.user");
-            $this->credential['pass']   = config("iranian_sms.smsir.{$account}.pass");
+            $this->credential['apiKey']   = config("iranian_sms.smsir.{$account}.api_key");
+            $this->credential['secretKey']   = config("iranian_sms.smsir.{$account}.secret_key");
             $this->credential['lineNo'] = config("iranian_sms.smsir.{$account}.line_no");
         }
+
     }
 
     public function send(string $number, string $message)
     {
         $number = $this->filterNumber($number);
 
-        $propertiesObject = [
-            'user'   => $this->credential['user'],
-            'pass'   => $this->credential['pass'],
-            'lineNo' => $this->credential['lineNo'],
-            'to'     => $number,
-            'text'   => $message,
+        $curl = $this->getCurl();
+        $body   = [
+            'Messages' => [$message],
+            'MobileNumbers' => [$number],
+            'LineNumber' => $this->credential['lineNo']
         ];
 
-        $ch = curl_init($this->gateway_url . '?' . http_build_query($propertiesObject)); // e.g. http://example.com/example.xml
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HEADER, 0);
-        $data = curl_exec($ch);
-        curl_close($ch);
+        $curl->addHeader('x-sms-ir-secure-token', self::getToken());
+        $result = $curl->rawPost($this->gateway_url . 'api/MessageSend', json_encode($body));
 
-        return $data;
+        return json_decode($result,true);
+    }
+
+
+    public function sendUltraFast(string $number, $parameters, $templateId)
+    {
+        $number = $this->filterNumber($number);
+
+        $params = [];
+        foreach ($parameters as $key => $value) {
+            $params[] = ['Parameter' => $key, 'ParameterValue' => $value];
+        }
+
+        $curl = $this->getCurl();
+        $body   = ['ParameterArray' => $params,'TemplateId' => $templateId,'Mobile' => $number];
+        $curl->addHeader('x-sms-ir-secure-token', self::getToken());
+        $result = $curl->rawPost($this->gateway_url . 'api/UltraFastSend', json_encode($body));
+
+        return json_decode($result,true);
+    }
+
+    private function getToken()
+    {
+        $curl = $this->getCurl();
+        $body = ['UserApiKey' => $this->credential['apiKey'],'SecretKey' => $this->credential['secretKey'],'System'=>'laravel_v_1_4'];
+        $result = $curl->rawPost($this->gateway_url.'api/Token', json_encode($body));
+        return json_decode($result,true)['TokenKey'];
+    }
+
+    public function getCurl(): EasyCurl
+    {
+        $curl = parent::getCurl();
+        $curl->addHeader('Content-type', 'application/json');
+        $curl->addHeader('Accept', 'application/json, */*');
+        return $curl;
     }
 }
